@@ -39,65 +39,86 @@ class _HomeScreenState extends State<HomeScreen> {
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
               elevation: 4,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'Bem-vindo à Semana da Computação!',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              child: LayoutBuilder(
+                builder: (context, innerConstraints) {
+                  final maxWidth = innerConstraints.maxWidth;
+                  const crossAxisCount = 2;
+                  const spacing = 12.0;
+                  final totalSpacing = spacing * (crossAxisCount - 1);
+                  final itemWidth = (maxWidth - totalSpacing) / crossAxisCount;
+                  const desiredItemHeight = 120.0;
+                  double childAspectRatio = itemWidth / desiredItemHeight;
+                  if (childAspectRatio < 1.0) childAspectRatio = 1.0;
+                  if (childAspectRatio > 6.0) childAspectRatio = 6.0;
+
+                  return ConstrainedBox(
+                    constraints: BoxConstraints(
+                      // Limit the height so the card never overflows the viewport
+                      maxHeight: MediaQuery.of(context).size.height * 0.8,
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      appState.isCheckedIn
-                          ? 'Você fez check-in! ${appState.currentParticipant?.name}'
-                          : 'Faça seu check-in para começar',
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                    const SizedBox(height: 18),
-                    GridView.count(
-                      crossAxisCount: 2,
-                      shrinkWrap: true,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      childAspectRatio: 3,
-                      physics: const NeverScrollableScrollPhysics(),
-                      children: [
-                        ElevatedButton.icon(
-                          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CheckInScreen())),
-                          icon: const Icon(Icons.login),
-                          label: const Text('Check-in'),
-                        ),
-                        ElevatedButton.icon(
-                          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EventListScreen())),
-                          icon: const Icon(Icons.calendar_today),
-                          label: const Text('Programação'),
-                        ),
-                        ElevatedButton.icon(
-                          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ScheduleScreen())),
-                          icon: const Icon(Icons.assignment),
-                          label: const Text('Minha Agenda'),
-                        ),
-                        ElevatedButton.icon(
-                          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const QuestionsScreen())),
-                          icon: const Icon(Icons.help),
-                          label: const Text('Perguntas'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
-                        child: const Text('Ver Perfil'),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'Bem-vindo à Semana da Computação!',
+                            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            appState.isCheckedIn
+                                ? 'Você fez check-in! ${appState.currentParticipant?.name}'
+                                : 'Faça seu check-in para começar',
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                          const SizedBox(height: 18),
+
+                          GridView.count(
+                            crossAxisCount: crossAxisCount,
+                            shrinkWrap: true,
+                            mainAxisSpacing: spacing,
+                            crossAxisSpacing: spacing,
+                            childAspectRatio: childAspectRatio,
+                            physics: const NeverScrollableScrollPhysics(),
+                            children: [
+                              ElevatedButton.icon(
+                                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CheckInScreen())),
+                                icon: const Icon(Icons.login),
+                                label: const Text('Check-in'),
+                              ),
+                              ElevatedButton.icon(
+                                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EventListScreen())),
+                                icon: const Icon(Icons.calendar_today),
+                                label: const Text('Programação'),
+                              ),
+                              ElevatedButton.icon(
+                                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ScheduleScreen())),
+                                icon: const Icon(Icons.assignment),
+                                label: const Text('Minha Agenda'),
+                              ),
+                              ElevatedButton.icon(
+                                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const QuestionsScreen())),
+                                icon: const Icon(Icons.help),
+                                label: const Text('Perguntas'),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 12),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
+                              child: const Text('Ver Perfil'),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          const Text('Dica: segure o título no topo para acessar funções administrativas', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    const Text('Dica: segure o título no topo para acessar funções administrativas', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  ],
-                ),
+                  );
+                },
               ),
             );
           },
