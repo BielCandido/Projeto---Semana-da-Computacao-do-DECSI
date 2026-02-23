@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Event {
   final String id;
   final String title;
@@ -40,16 +42,26 @@ class Event {
   }
 
   factory Event.fromJson(Map<String, dynamic> json) {
+    DateTime parseDynamic(dynamic v) {
+      if (v == null) return DateTime.now();
+      if (v is DateTime) return v;
+      if (v is Timestamp) return v.toDate();
+      if (v is String) return DateTime.parse(v);
+      if (v is int) return DateTime.fromMillisecondsSinceEpoch(v);
+      // fallback
+      return DateTime.tryParse(v.toString()) ?? DateTime.now();
+    }
+
     return Event(
-      id: json['id'],
-      title: json['title'],
-      description: json['description'],
-      startTime: DateTime.parse(json['startTime']),
-      endTime: DateTime.parse(json['endTime']),
-      location: json['location'],
-      speaker: json['speaker'],
-      category: json['category'],
-      capacity: json['capacity'],
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      startTime: parseDynamic(json['startTime']),
+      endTime: parseDynamic(json['endTime']),
+      location: json['location']?.toString() ?? '',
+      speaker: json['speaker']?.toString(),
+      category: json['category']?.toString(),
+      capacity: json['capacity'] is int ? json['capacity'] as int : int.tryParse(json['capacity']?.toString() ?? '') ?? 0,
     );
   }
 }

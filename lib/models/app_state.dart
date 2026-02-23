@@ -91,10 +91,12 @@ class AppState extends ChangeNotifier {
     // 1. Ouvir a coleção 'activities' em TEMPO REAL!
     FirebaseFirestore.instance.collection('activities').snapshots().listen((snapshot) {
       _events = snapshot.docs.map((doc) {
-        final data = doc.data();
-        return Event.fromJson(data);
+        final data = doc.data() as Map<String, dynamic>;
+        final Map<String, dynamic> withId = Map<String, dynamic>.from(data);
+        withId['id'] = doc.id;
+        return Event.fromJson(withId);
       }).toList();
-      notifyListeners(); 
+      notifyListeners();
     });
 
     // 2. Carregar a Agenda Personalizada
@@ -133,13 +135,51 @@ class AppState extends ChangeNotifier {
       // TRUQUE: Em vez de .add(), usamos .doc(event.id).set() 
       // Assim o nome do ficheiro no Firebase será exatamente o ID do evento,
       // o que facilita muito na hora de o apagar!
+      // Prepare data for Firestore: keep JSON strings for local prefs
+      // but write proper Firestore Timestamps for date fields.
+      final Map<String, dynamic> firestoreData = Map<String, dynamic>.from(event.toJson());
+      firestoreData['startTime'] = Timestamp.fromDate(event.startTime);
+      firestoreData['endTime'] = Timestamp.fromDate(event.endTime);
+
       await FirebaseFirestore.instance
           .collection('activities')
-          .doc(event.id) 
-          .set(event.toJson());
+          .doc(event.id)
+          .set(firestoreData);
       print("Sucesso: Evento salvo no Firebase!");
     } catch (erro) {
       print("Erro ao salvar evento no Firebase: $erro");
+    }
+  }
+
+  /// Atualiza um evento existente localmente e no Firestore sem apagá-lo.
+  Future<void> updateEvent(Event event) async {
+    // Atualiza a lista local (procura por id)
+    final idx = _events.indexWhere((e) => e.id == event.id);
+    if (idx != -1) {
+      _events[idx] = event;
+    } else {
+      _events.add(event);
+    }
+    await _saveEvents();
+    notifyListeners();
+
+    // Prepara dados para o Firestore (usar Timestamp)
+    final Map<String, dynamic> firestoreData = Map<String, dynamic>.from(event.toJson());
+    firestoreData['startTime'] = Timestamp.fromDate(event.startTime);
+    firestoreData['endTime'] = Timestamp.fromDate(event.endTime);
+
+    try {
+      // Tenta atualizar o documento (falhará se não existir)
+      await FirebaseFirestore.instance.collection('activities').doc(event.id).update(firestoreData);
+      print('Sucesso: Evento atualizado no Firebase!');
+    } catch (erro) {
+      // Se não existir, cria com set()
+      try {
+        await FirebaseFirestore.instance.collection('activities').doc(event.id).set(firestoreData);
+        print('Aviso: Evento criado via fallback set() no Firebase.');
+      } catch (e) {
+        print('Erro ao atualizar/criar evento no Firebase: $e');
+      }
     }
   }
 

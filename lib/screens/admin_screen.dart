@@ -20,83 +20,84 @@ class AdminScreen extends StatelessWidget {
 
     await showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(existing == null ? 'Criar Evento' : 'Editar Evento'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'Título')),
-              TextField(controller: descCtrl, decoration: const InputDecoration(labelText: 'Descrição')),
-              TextField(controller: locationCtrl, decoration: const InputDecoration(labelText: 'Local')),
-              TextField(controller: speakerCtrl, decoration: const InputDecoration(labelText: 'Palestrante')),
-              TextField(controller: capacityCtrl, decoration: const InputDecoration(labelText: 'Capacidade'), keyboardType: TextInputType.number),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text('Início: ${start.toLocal()}'.split('.').first),
-                  ),
-                  TextButton(
-                    onPressed: () async {
-                      final d = await showDatePicker(context: ctx, initialDate: start, firstDate: DateTime(2020), lastDate: DateTime(2100));
-                      if (d != null) {
-                        final t = await showTimePicker(context: ctx, initialTime: TimeOfDay.fromDateTime(start));
-                        if (t != null) start = DateTime(d.year, d.month, d.day, t.hour, t.minute);
-                      }
-                    },
-                    child: const Text('Alterar'),
-                  )
-                ],
-              ),
-              Row(
-                children: [
-                  Expanded(child: Text('Fim: ${end.toLocal()}'.split('.').first)),
-                  TextButton(
-                    onPressed: () async {
-                      final d = await showDatePicker(context: ctx, initialDate: end, firstDate: DateTime(2020), lastDate: DateTime(2100));
-                      if (d != null) {
-                        final t = await showTimePicker(context: ctx, initialTime: TimeOfDay.fromDateTime(end));
-                        if (t != null) end = DateTime(d.year, d.month, d.day, t.hour, t.minute);
-                      }
-                    },
-                    child: const Text('Alterar'),
-                  )
-                ],
-              ),
-            ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: Text(existing == null ? 'Criar Evento' : 'Editar Evento'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: titleCtrl, decoration: const InputDecoration(labelText: 'Título')),
+                TextField(controller: descCtrl, decoration: const InputDecoration(labelText: 'Descrição')),
+                TextField(controller: locationCtrl, decoration: const InputDecoration(labelText: 'Local')),
+                TextField(controller: speakerCtrl, decoration: const InputDecoration(labelText: 'Palestrante')),
+                TextField(controller: capacityCtrl, decoration: const InputDecoration(labelText: 'Capacidade'), keyboardType: TextInputType.number),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text('Início: ${start.toLocal()}'.split('.').first),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        final d = await showDatePicker(context: ctx, initialDate: start, firstDate: DateTime(2020), lastDate: DateTime(2100));
+                        if (d != null) {
+                          final t = await showTimePicker(context: ctx, initialTime: TimeOfDay.fromDateTime(start));
+                          if (t != null) setState(() { start = DateTime(d.year, d.month, d.day, t.hour, t.minute); });
+                        }
+                      },
+                      child: const Text('Alterar'),
+                    )
+                  ],
+                ),
+                Row(
+                  children: [
+                    Expanded(child: Text('Fim: ${end.toLocal()}'.split('.').first)),
+                    TextButton(
+                      onPressed: () async {
+                        final d = await showDatePicker(context: ctx, initialDate: end, firstDate: DateTime(2020), lastDate: DateTime(2100));
+                        if (d != null) {
+                          final t = await showTimePicker(context: ctx, initialTime: TimeOfDay.fromDateTime(end));
+                          if (t != null) setState(() { end = DateTime(d.year, d.month, d.day, t.hour, t.minute); });
+                        }
+                      },
+                      child: const Text('Alterar'),
+                    )
+                  ],
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancelar')),
+            ElevatedButton(
+              onPressed: () {
+                final id = existing?.id ?? const Uuid().v4();
+                final capacity = int.tryParse(capacityCtrl.text) ?? 30;
+                final event = Event(
+                  id: id,
+                  title: titleCtrl.text.trim(),
+                  description: descCtrl.text.trim(),
+                  startTime: start,
+                  endTime: end,
+                  location: locationCtrl.text.trim(),
+                  speaker: speakerCtrl.text.trim().isEmpty ? null : speakerCtrl.text.trim(),
+                  capacity: capacity,
+                );
+
+                final appState = Provider.of<AppState>(context, listen: false);
+                if (existing == null) {
+                  appState.addEvent(event);
+                } else {
+                  appState.updateEvent(event);
+                }
+
+                Navigator.of(ctx).pop();
+              },
+              child: const Text('Salvar'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancelar')),
-          ElevatedButton(
-            onPressed: () {
-              final id = existing?.id ?? const Uuid().v4();
-              final capacity = int.tryParse(capacityCtrl.text) ?? 30;
-              final event = Event(
-                id: id,
-                title: titleCtrl.text.trim(),
-                description: descCtrl.text.trim(),
-                startTime: start,
-                endTime: end,
-                location: locationCtrl.text.trim(),
-                speaker: speakerCtrl.text.trim().isEmpty ? null : speakerCtrl.text.trim(),
-                capacity: capacity,
-              );
-
-              final appState = Provider.of<AppState>(context, listen: false);
-              if (existing == null) {
-                appState.addEvent(event);
-              } else {
-                appState.removeEvent(existing);
-                appState.addEvent(event);
-              }
-
-              Navigator.of(ctx).pop();
-            },
-            child: const Text('Salvar'),
-          ),
-        ],
       ),
     );
   }
