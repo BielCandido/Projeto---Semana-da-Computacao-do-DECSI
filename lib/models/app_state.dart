@@ -1,9 +1,9 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:semana_computacao/models/participant.dart';
 import 'package:semana_computacao/models/event.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // Import do Firebase
 
 class AppState extends ChangeNotifier {
   bool _isCheckedIn = false;
@@ -60,7 +60,6 @@ class AppState extends ChangeNotifier {
 
   Future<void> _saveSchedule() async {
     final prefs = await SharedPreferences.getInstance();
-    // save schedule as list of event ids
     final ids = _personalizedSchedule.map((e) => e.id).toList();
     await prefs.setString(_kScheduleKey, jsonEncode(ids));
   }
@@ -85,80 +84,138 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  /// Load events, schedule and questions from preferences
+  // --- CARREGAMENTO DO FIREBASE ---
   Future<void> loadEventsAndData() async {
     final prefs = await SharedPreferences.getInstance();
 
-    // Load events
-    final eventsStr = prefs.getString(_kEventsKey);
-    if (eventsStr != null) {
-      try {
-        final List<dynamic> raw = jsonDecode(eventsStr);
-        _events = raw.map((e) => Event.fromJson(Map<String, dynamic>.from(e))).toList();
-      } catch (_) {
-        _events = [];
-      }
-    }
+    // 1. Ouvir a coleção 'activities' em TEMPO REAL!
+    FirebaseFirestore.instance.collection('activities').snapshots().listen((snapshot) {
+      _events = snapshot.docs.map((doc) {
+        final data = doc.data();
+        return Event.fromJson(data);
+      }).toList();
+      notifyListeners(); 
+    });
 
-    // Load schedule (by ids)
+    // 2. Carregar a Agenda Personalizada
     final scheduleStr = prefs.getString(_kScheduleKey);
     if (scheduleStr != null) {
       try {
         final List<dynamic> ids = jsonDecode(scheduleStr);
         final idSet = ids.map((e) => e.toString()).toSet();
         _personalizedSchedule = _events.where((ev) => idSet.contains(ev.id)).toList();
-      } catch (_) {
+      } catch (e) { 
         _personalizedSchedule = [];
       }
     }
 
-    // Load questions
-    final qsStr = prefs.getString(_kQuestionsKey);
-    if (qsStr != null) {
-      try {
-        final List<dynamic> qs = jsonDecode(qsStr);
-        _questions = qs.map((e) => e.toString()).toList();
-      } catch (_) {
-        _questions = [];
-      }
-    }
-
-    notifyListeners();
+    // 3. Ouvir as perguntas em TEMPO REAL!
+    FirebaseFirestore.instance
+        .collection('questions')
+        .orderBy('data_envio', descending: false)
+        .snapshots()
+        .listen((snapshot) {
+      _questions = snapshot.docs.map<String>((doc) {
+        final data = doc.data() as Map<String, dynamic>; 
+        return data['texto']?.toString() ?? 'Pergunta sem texto';
+      }).toList();
+      notifyListeners();
+    });
   }
 
-  // Event management
-  void addEvent(Event event) {
+  // --- EVENTOS NO FIREBASE ---
+// --- EVENTOS NO FIREBASE ---
+  Future<void> addEvent(Event event) async {
     _events.add(event);
-    _saveEvents();
-    notifyListeners();
+    notifyListeners(); 
+
+    try {
+      // TRUQUE: Em vez de .add(), usamos .doc(event.id).set() 
+      // Assim o nome do ficheiro no Firebase será exatamente o ID do evento,
+      // o que facilita muito na hora de o apagar!
+      await FirebaseFirestore.instance
+          .collection('activities')
+          .doc(event.id) 
+          .set(event.toJson());
+      print("Sucesso: Evento salvo no Firebase!");
+    } catch (erro) {
+      print("Erro ao salvar evento no Firebase: $erro");
+    }
   }
 
-  void removeEvent(Event event) {
+  Future<void> removeEvent(Event event) async {
+    // 1. Remove da tela na hora
     _events.remove(event);
     _saveEvents();
     notifyListeners();
-  }
 
-  // Personalized schedule
-  void addToSchedule(Event event) {
-    if (!_personalizedSchedule.contains(event)) {
-      _personalizedSchedule.add(event);
-      _saveSchedule();
-      notifyListeners();
+    // 2. Apaga da base de dados do Firebase usando o ID do evento
+    try {
+      await FirebaseFirestore.instance
+          .collection('activities')
+          .doc(event.id)
+          .delete();
+      print("Sucesso: Evento apagado do Firebase!");
+    } catch (erro) {
+      print("Erro ao apagar evento no Firebase: $erro");
     }
   }
 
-  void removeFromSchedule(Event event) {
-    _personalizedSchedule.remove(event);
-    _saveSchedule();
-    notifyListeners();
+  // --- INSCRIÇÕES NO FIREBASE ---
+  Future<void> addToSchedule(Event event) async {
+    if (!_personalizedSchedule.contains(event)) {
+      _personalizedSchedule.add(event);
+      _saveSchedule(); 
+      notifyListeners();
+
+      if (_currentParticipant != null) {
+        try {
+          String docId = '${_currentParticipant!.id}_${event.id}';
+          await FirebaseFirestore.instance.collection('enrollments').doc(docId).set({
+            'usuario_id': _currentParticipant!.id,
+            'atividade_id': event.id,
+            'data_inscricao': FieldValue.serverTimestamp(),
+          });
+          print("Sucesso: Inscrição salva no Firebase!");
+        } catch (erro) {
+          print("Erro ao salvar inscrição: $erro");
+        }
+      }
+    }
   }
 
-  // Questions
-  void submitQuestion(String question) {
+  Future<void> removeFromSchedule(Event event) async {
+    if (_personalizedSchedule.contains(event)) {
+      _personalizedSchedule.remove(event);
+      _saveSchedule();
+      notifyListeners();
+
+      if (_currentParticipant != null) {
+        try {
+          String docId = '${_currentParticipant!.id}_${event.id}';
+          await FirebaseFirestore.instance.collection('enrollments').doc(docId).delete();
+          print("Sucesso: Inscrição removida do Firebase!");
+        } catch (erro) {
+          print("Erro ao remover inscrição: $erro");
+        }
+      }
+    }
+  }
+
+  // --- PERGUNTAS NO FIREBASE ---
+  Future<void> submitQuestion(String question) async {
     _questions.add(question);
-    _saveQuestions();
     notifyListeners();
+
+    try {
+      await FirebaseFirestore.instance.collection('questions').add({
+        'texto': question,
+        'data_envio': FieldValue.serverTimestamp(), 
+      });
+      print("Sucesso: Pergunta enviada para o Firebase!");
+    } catch (erro) {
+      print("Erro ao enviar pergunta: $erro");
+    }
   }
 
   void removeQuestion(String question) {

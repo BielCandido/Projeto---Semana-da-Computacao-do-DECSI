@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "199067693270",
+    "project_id": "semana-da-computacao-fa84a",
+    "storage_bucket": "semana-da-computacao-fa84a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:199067693270:android:bffcd78bc7276b29595977",
+        "android_client_info": {
+          "package_name": "com.example.semana_computacao"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAXOyoGq6HWVPmcvyXpXsf0jvq6YGKwLn4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
