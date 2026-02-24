@@ -300,5 +300,153 @@ void main() {
         expect(appState.events[0].capacity, 100);
       });
     });
+
+    group('Event Update', () {
+      test('updateEvent replaces existing event by ID', () async {
+        final event1 = Event(
+          id: '1',
+          title: 'Original Title',
+          description: 'Original Description',
+          startTime: DateTime.now(),
+          endTime: DateTime.now().add(const Duration(hours: 1)),
+          location: 'Room 1',
+          capacity: 20,
+        );
+
+        appState.addEvent(event1);
+        expect(appState.events.length, 1);
+        expect(appState.events[0].title, 'Original Title');
+
+        final updatedEvent = Event(
+          id: '1',
+          title: 'Updated Title',
+          description: 'Updated Description',
+          startTime: DateTime.now().add(const Duration(hours: 2)),
+          endTime: DateTime.now().add(const Duration(hours: 3)),
+          location: 'Room 2',
+          capacity: 30,
+        );
+
+        await appState.updateEvent(updatedEvent);
+
+        expect(appState.events.length, 1);
+        expect(appState.events[0].id, '1');
+        expect(appState.events[0].title, 'Updated Title');
+        expect(appState.events[0].description, 'Updated Description');
+        expect(appState.events[0].capacity, 30);
+      });
+
+      test('updateEvent adds new event if ID does not exist', () async {
+        final event1 = Event(
+          id: '1',
+          title: 'Event 1',
+          description: 'First',
+          startTime: DateTime.now(),
+          endTime: DateTime.now().add(const Duration(hours: 1)),
+          location: 'Room 1',
+          capacity: 20,
+        );
+
+        appState.addEvent(event1);
+        expect(appState.events.length, 1);
+
+        final newEvent = Event(
+          id: '2',
+          title: 'Event 2',
+          description: 'Second',
+          startTime: DateTime.now().add(const Duration(hours: 2)),
+          endTime: DateTime.now().add(const Duration(hours: 3)),
+          location: 'Room 2',
+          capacity: 30,
+        );
+
+        await appState.updateEvent(newEvent);
+
+        expect(appState.events.length, 2);
+        expect(appState.events[1].id, '2');
+        expect(appState.events[1].title, 'Event 2');
+      });
+
+      test('updateEvent notifies listeners when event is updated', () async {
+        var notifyCount = 0;
+        appState.addListener(() {
+          notifyCount++;
+        });
+
+        final event = Event(
+          id: '1',
+          title: 'Event',
+          description: 'Test',
+          startTime: DateTime.now(),
+          endTime: DateTime.now().add(const Duration(hours: 1)),
+          location: 'Room',
+          capacity: 20,
+        );
+
+        appState.addEvent(event);
+        final initialNotifyCount = notifyCount;
+
+        final updatedEvent = Event(
+          id: '1',
+          title: 'Updated Event',
+          description: 'Updated',
+          startTime: DateTime.now().add(const Duration(hours: 1)),
+          endTime: DateTime.now().add(const Duration(hours: 2)),
+          location: 'Room 2',
+          capacity: 25,
+        );
+
+        await appState.updateEvent(updatedEvent);
+
+        expect(notifyCount, greaterThan(initialNotifyCount));
+      });
+
+      test('updateEvent maintains event list order', () async {
+        final event1 = Event(
+          id: '1',
+          title: 'Event 1',
+          description: 'First',
+          startTime: DateTime.now(),
+          endTime: DateTime.now().add(const Duration(hours: 1)),
+          location: 'Room 1',
+          capacity: 20,
+        );
+
+        final event2 = Event(
+          id: '2',
+          title: 'Event 2',
+          description: 'Second',
+          startTime: DateTime.now().add(const Duration(hours: 2)),
+          endTime: DateTime.now().add(const Duration(hours: 3)),
+          location: 'Room 2',
+          capacity: 30,
+        );
+
+        appState.addEvent(event1);
+        appState.addEvent(event2);
+        expect(appState.events.length, 2);
+        expect(appState.events[0].id, '1');
+        expect(appState.events[1].id, '2');
+
+        // Update the first event
+        final updatedEvent1 = Event(
+          id: '1',
+          title: 'Updated Event 1',
+          description: 'Updated First',
+          startTime: DateTime.now().add(const Duration(hours: 4)),
+          endTime: DateTime.now().add(const Duration(hours: 5)),
+          location: 'Room 3',
+          capacity: 40,
+        );
+
+        await appState.updateEvent(updatedEvent1);
+
+        expect(appState.events.length, 2);
+        expect(appState.events[0].id, '1');
+        expect(appState.events[0].title, 'Updated Event 1');
+        expect(appState.events[1].id, '2');
+        expect(appState.events[1].title, 'Event 2');
+      });
+    });
   });
 }
